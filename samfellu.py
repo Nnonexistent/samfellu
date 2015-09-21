@@ -9,15 +9,23 @@ from collections import Counter
 
 
 size = 10000, 10000
+# DIRECTIONS = (
+#     (u'Существительные', ('NOUN', )),
+#     (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
+#     (u'Прилагательные и причастия', ('ADJF', 'ADJS', 'PRTF', 'PRTS', 'ADVB', 'COMP')),
+#     (u'Союзы, предлоги и пр.', ('PRED', 'PREP', 'CONJ', 'PRCL', 'INTJ')),
+#     (u'Местоимения', ('NPRO', ))
+# )
 DIRECTIONS = (
     (u'Существительные', ('NOUN', )),
-    (u'Прилигательные и причастия', ('ADJF', 'ADJS', 'PRTF', 'PRTS', 'ADVB')),
     (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
-    (u'Союзы, предлоги и пр.', ('PRED', 'PREP', 'CONJ', 'PRCL', 'INTJ')),
+    (u'Прилагательные и причастия', ('ADJF', 'ADJS', 'PRTF', 'PRTS',)),
+    (u'Наречия', ('ADVB', 'COMP')),
+    (u'Союзы, предлоги и частицы', ('PREP', 'CONJ', 'PRCL')),
     (u'Местоимения', ('NPRO', ))
 )
-STEP_SIZE = 4
-LINE_WIDTH = 1
+STEP_SIZE = 10
+LINE_WIDTH = 2
 
 
 def split_text(text):
@@ -93,7 +101,8 @@ def main(*args, **kwargs):
             counter[d] += 1
             ctx.move_to(x, y)
 
-            dx, dy = rotate_vector(-STEP_SIZE, 0, 360 * d / len(DIRECTIONS))
+            # dx, dy = rotate_vector(-STEP_SIZE, 0, 360 * d / len(DIRECTIONS))
+            dx, dy = rotate_vector(-STEP_SIZE * i / (counter[d] + 1) / len(DIRECTIONS), 0, 360 * d / len(DIRECTIONS))
             x, y = x + dx, y + dy
             ctx.set_source_rgb(*get_color(float(i) / len(words)))
             ctx.line_to(x, y)
