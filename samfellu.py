@@ -8,11 +8,12 @@ import codecs
 import cairo
 import pymorphy2
 import math
+import array
 from tempfile import TemporaryFile
 from collections import Counter
 
 
-INPUT_FILENAME = '1.txt'
+INPUT_FILENAME = '8.txt'
 OUTPUT_FILENAME = 'out.png'
 
 
@@ -33,15 +34,17 @@ class Samfellu(object):
             input_type='filename',
             text_encoding='utf-8',
             text_chunk_size=4096,
+            points_chunk_size=4096,
             image_size=(640, 640),
             image_step_size=10,
-            image_line_width=2,
+            image_line_width=1,
             image_draw_legend=True,
             max_word_size=50):
         self.text_input = text_input
         self.input_type = input_type
         self.text_encoding = text_encoding
         self.text_chunk_size = text_chunk_size
+        self.points_chunk_size = points_chunk_size
         self.image_size = image_size
         self.image_step_size = image_step_size
         self.image_line_width = image_line_width
@@ -63,7 +66,11 @@ class Samfellu(object):
             (u'Местоимения', ('NPRO', ))
         )
         self.legend_pos = 0.1 * self.image_size[0], 0.1 * self.image_size[1]
-        self.counter = Counter()
+        self.counter = Counter()  # directions counter
+        self.bbox = (0, 0, 0, 0)
+        self.total_words = 0
+        self.tf_dir = None
+        self.tf_points = None
 
     @property
     def morph(self):
@@ -92,8 +99,10 @@ class Samfellu(object):
                 if pos in p.tag:
                     return i
 
-    def get_color(self, ratio):
-        return -ratio, .5, ratio
+    def get_color(self, i):
+        t = float(i) / (self.total_words or 1)
+        start, end = (1, 0, 0), (0, 0 ,1)
+        return [start[i] + t*(end[i]-start[i]) for i in range(3)]
 
     def iter_text(self):
         if self.input_type == 'filename':
@@ -126,6 +135,94 @@ class Samfellu(object):
             for i in xrange(0, len(text), self.text_chunk_size):
                 yield text[i:i+self.text_chunk_size]
 
+    def parse_words(self):
+        i = 0
+        self.tf_dir = TemporaryFile()
+        for text in self.iter_text():
+            directions = array.array('b')
+            words = (m.group() for m in self.split_text(text))
+
+            for word in words:
+                i += 1
+                d = self.get_direction(word)
+                if d is not None:
+                    self.counter[d] += 1
+                    directions.append(d)
+
+            self.tf_dir.write(directions.tostring())
+            self.progress(words=i)
+        self.total_words = sum(self.counter.itervalues())
+
+    def construct_line(self):
+        if self.tf_dir is None:
+            raise SamfelluError(u'Unable to construct line before words parsing complete')
+
+        x, y = 0.0, 0.0
+        self.tf_points = TemporaryFile()
+        self.tf_dir.seek(0)
+        i = 0
+        while True:
+            directions = array.array('b')
+            chunk = self.tf_dir.read(self.points_chunk_size*directions.itemsize)
+            if not chunk:
+                break
+            directions.fromstring(chunk)
+
+            points = array.array('d')
+            for d in directions:
+                i += 1
+                dx, dy = rotate_vector(-1, 0, 360 * d / len(self.directions))
+                x, y = x + dx, y + dy
+                points.append(x)
+                points.append(y)
+                self.bbox = (
+                    min(self.bbox[0], x),
+                    min(self.bbox[1], y),
+                    max(self.bbox[2], x),
+                    max(self.bbox[3], y),
+                )
+            self.tf_points.write(points.tostring())
+            self.progress(line_points=i)
+        self.tf_dir.close()
+        self.tf_dir = None
+
+    def draw(self):
+        if self.tf_points is None:
+            raise SamfelluError(u'Unable to draw line before constructing it')
+
+        if (self.bbox[2]-self.bbox[0])/(self.bbox[3]-self.bbox[1]) > float(self.image_size[0]) / self.image_size[1]:
+            ratio = (self.bbox[3]-self.bbox[1]) / self.image_size[1]
+            tr_x = -self.bbox[0]
+            tr_y = -self.bbox[1] - self.image_size[1] * ratio / 2
+        else:
+            ratio = (self.bbox[2]-self.bbox[0]) / self.image_size[0]
+            tr_x = -self.bbox[0] - self.image_size[0] * ratio / 2
+            tr_y = -self.bbox[1]
+
+        i = 0
+        first = True
+        self.tf_points.seek(0)
+        while True:
+            points = array.array('d')
+            chunk = self.tf_points.read(self.points_chunk_size*points.itemsize)
+            if not chunk:
+                break
+            points.fromstring(chunk)
+
+            for px, py in zip(points[::2], points[1::2]):
+                i += 1
+                x = (px + tr_x) / ratio
+                y = (py + tr_y) / ratio
+                if not first:
+                    self.cairo_ctx.set_source_rgb(*self.get_color(i))
+                    self.cairo_ctx.line_to(x, y)
+                    self.cairo_ctx.stroke()
+                self.cairo_ctx.move_to(x, y)
+                first = False
+            self.progress(drawn_points=i)
+        self.tf_points.close()
+        self.tf_points = None
+
     def draw_legend(self):
         self.cairo_ctx.set_line_width(5)
         for i, (title, poss) in enumerate(self.directions):
@@ -141,43 +238,31 @@ class Samfellu(object):
             self.cairo_ctx.stroke()
 
     def process(self):
-        x, y = float(self.image_size[0] / 2), float(self.image_size[1] / 2)
-    
-        i = 0
-        for text in self.iter_text():
-            words = [m.group() for m in self.split_text(text)]
-    
-            for i, word in enumerate(words, i+1):  # reuse i in the next iteration to create continuos numeration
-                d = self.get_direction(word)
-                if d is not None:
-                    self.counter[d] += 1
-                    self.cairo_ctx.move_to(x, y)
-        
-                    dx, dy = rotate_vector(-self.image_step_size * i / (self.counter[d] + 1) / len(self.directions), 0, 360 * d / len(self.directions))
-                    x, y = x + dx, y + dy
-                    self.cairo_ctx.set_source_rgb(*self.get_color(float(i) / len(words)))
-                    self.cairo_ctx.line_to(x, y)
-                    self.cairo_ctx.stroke()
-            self.progress(words=i)
-
+        self.parse_words()
+        self.construct_line()
+        self.draw()
         if self.draw_legend:
             self.draw_legend()
 
-    def progress(self, words):
+    def progress(self, words=None, line_points=None, drawn_points=None):
         """ Hook to display or somehow handle processing progress """
         pass
-
-    def draw(self):
-        self._surface
 
     def write_output(self, filename):
         self._surface.write_to_png(filename)
 
 
 class ConsoleSamfellu(Samfellu):
-    def progress(self, words):
-        sys.stdout.write(u'Words processed: %s\r' % words)
-        sys.stdout.flush()
+    def progress(self, words=None, line_points=None, drawn_points=None):
+        if words:
+            sys.stdout.write(u'Words processed: %s\r' % words)
+            sys.stdout.flush()
+        elif line_points:
+            sys.stdout.write(u'Line construction: %s%%\r' % (100*line_points/self.total_words))
+            sys.stdout.flush()
+        elif drawn_points:
+            sys.stdout.write(u'Drawing: %s%%\r' % (100*drawn_points/self.total_words))
+            sys.stdout.flush()
 
 
 def main():
@@ -186,7 +271,6 @@ def main():
     print '\n'
     for i, (title, poss) in enumerate(smf.directions):
         print u'%s: %s' % (title, smf.counter[i])
-    smf.draw()
     smf.write_output(OUTPUT_FILENAME)
 
 
