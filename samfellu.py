@@ -3,6 +3,7 @@
 
 import re
 import os
+import sys
 import codecs
 import cairo
 import pymorphy2
@@ -36,8 +37,7 @@ class Samfellu(object):
             image_step_size=10,
             image_line_width=2,
             image_draw_legend=True,
-            max_word_size=50,
-            show_progress=True):
+            max_word_size=50):
         self.text_input = text_input
         self.input_type = input_type
         self.text_encoding = text_encoding
@@ -47,7 +47,6 @@ class Samfellu(object):
         self.image_line_width = image_line_width
         self.image_draw_legend = image_draw_legend
         self.max_word_size = max_word_size
-        self.show_progress = show_progress
         # directions = (
         #     (u'существительные', ('noun', )),
         #     (u'глаголы и деепричастия', ('verb', 'infn', 'grnd')),
@@ -141,10 +140,6 @@ class Samfellu(object):
             self.cairo_ctx.show_text(u'%s (%s)' % (title, self.counter[i]))
             self.cairo_ctx.stroke()
 
-    def print_counter(self):
-        for i, (title, poss) in enumerate(self.directions):
-            print u'%s: %s' % (title, self.counter[i])
-
     def process(self):
         x, y = float(self.image_size[0] / 2), float(self.image_size[1] / 2)
     
@@ -163,14 +158,14 @@ class Samfellu(object):
                     self.cairo_ctx.set_source_rgb(*self.get_color(float(i) / len(words)))
                     self.cairo_ctx.line_to(x, y)
                     self.cairo_ctx.stroke()
-            if self.show_progress:
-                print '.',
-        if self.show_progress:
-            print '\n'
-    
+            self.progress(words=i)
+
         if self.draw_legend:
             self.draw_legend()
-        self.print_counter()
+
+    def progress(self, words):
+        """ Hook to display or somehow handle processing progress """
+        pass
 
     def draw(self):
         self._surface
@@ -178,9 +173,19 @@ class Samfellu(object):
     def write_output(self, filename):
         self._surface.write_to_png(filename)
 
+
+class ConsoleSamfellu(Samfellu):
+    def progress(self, words):
+        sys.stdout.write(u'Words processed: %s\r' % words)
+        sys.stdout.flush()
+
+
 def main():
-    smf = Samfellu(INPUT_FILENAME)
+    smf = ConsoleSamfellu(INPUT_FILENAME)
     smf.process()
+    print '\n'
+    for i, (title, poss) in enumerate(smf.directions):
+        print u'%s: %s' % (title, smf.counter[i])
     smf.draw()
     smf.write_output(OUTPUT_FILENAME)
 
