@@ -11,3 +11,4 @@ TODO
  * Image fit in specified size
  * Command line arguments parsing
  * Make app reusable by external modules, publish maybe
+ * Autopositioning for legend
