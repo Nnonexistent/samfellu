@@ -2,13 +2,22 @@
 # -*- coding: utf-8 -*-
 
 import re
+import os
+import codecs
 import cairo
 import pymorphy2
 import math
+from tempfile import TemporaryFile
 from collections import Counter
 
 
 size = 10000, 10000
+CHUNK_SIZE = 10000
+MAX_WORD_SIZE = 50
+TEXT_ENCODING = 'utf-8'
+TEXT_FILENAME = '1.txt'
+OUTPUT_FILENAME = 'out.png'
+SHOW_PROGRESS = True
 # DIRECTIONS = (
 #     (u'Существительные', ('NOUN', )),
 #     (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
@@ -29,7 +38,7 @@ LINE_WIDTH = 2
 
 
 def split_text(text):
-    return re.split(r'[^\w]+', text, flags=re.MULTILINE|re.UNICODE)
+    return re.finditer(r'\w{1,%s}' % MAX_WORD_SIZE, text, flags=re.MULTILINE|re.UNICODE)
 
 
 def get_direction(morph, word):
@@ -44,11 +53,25 @@ def get_color(ratio):
     return -ratio, .5, ratio
 
 
-def get_text():
-    f = open('text.txt')
-    text = f.read().decode('utf-8')
+class SamfelluError(Exception):
+    pass
+
+
+def iter_text():
+    try:
+        f = codecs.open(TEXT_FILENAME, encoding=TEXT_ENCODING)
+    except ValueError, e:
+        SamfelluError(u'Wrong encoding "%s" for file "%s"' % (TEXT_ENCODING, TEXT_FILENAME))
+    except IOError, e:
+        SamfelluError(u'Unable to open file "%s"' % TEXT_FILENAME)
+
+    while True:
+        text = f.read(CHUNK_SIZE)
+        if not text:
+            break
+        yield text
+
     f.close()
-    return text
 
 
 def rotate_vector(x, y, angle_deg):
@@ -79,10 +102,7 @@ def print_counter(counter):
         print u'%s: %s' % (title, counter[i])
 
 
-def main(*args, **kwargs):
-    text = get_text()
-    words = split_text(text)
-
+def main():
     morph = pymorphy2.MorphAnalyzer()
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, *size)
@@ -95,21 +115,27 @@ def main(*args, **kwargs):
     x, y = float(size[0] / 2), float(size[1] / 2)
     counter = Counter()
 
-    for i, word in enumerate(words):
-        d = get_direction(morph, word)
-        if d is not None:
-            counter[d] += 1
-            ctx.move_to(x, y)
+    i = 0
 
-            # dx, dy = rotate_vector(-STEP_SIZE, 0, 360 * d / len(DIRECTIONS))
-            dx, dy = rotate_vector(-STEP_SIZE * i / (counter[d] + 1) / len(DIRECTIONS), 0, 360 * d / len(DIRECTIONS))
-            x, y = x + dx, y + dy
-            ctx.set_source_rgb(*get_color(float(i) / len(words)))
-            ctx.line_to(x, y)
-            ctx.stroke()
+    for text in iter_text():
+        words = [m.group() for m in split_text(text)]
+
+        for i, word in enumerate(words, i):
+            d = get_direction(morph, word)
+            if d is not None:
+                counter[d] += 1
+                ctx.move_to(x, y)
+    
+                dx, dy = rotate_vector(-STEP_SIZE * i / (counter[d] + 1) / len(DIRECTIONS), 0, 360 * d / len(DIRECTIONS))
+                x, y = x + dx, y + dy
+                ctx.set_source_rgb(*get_color(float(i) / len(words)))
+                ctx.line_to(x, y)
+                ctx.stroke()
+        print '.',
+    print '\n'
 
     draw_legend(ctx, counter, 0.1 * size[0], 0.1 * size[1])
-    surface.write_to_png('out.png')
+    surface.write_to_png(OUTPUT_FILENAME)
     print_counter(counter)
 
 
