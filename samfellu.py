@@ -36,8 +36,8 @@ class Samfellu(object):
             text_chunk_size=4096,
             points_chunk_size=4096,
             image_size=(640, 640),
-            image_step_size=10,
             image_line_width=1,
+            image_padding=.05,
             image_draw_legend=True,
             max_word_size=50):
         self.text_input = text_input
@@ -46,8 +46,8 @@ class Samfellu(object):
         self.text_chunk_size = text_chunk_size
         self.points_chunk_size = points_chunk_size
         self.image_size = image_size
-        self.image_step_size = image_step_size
         self.image_line_width = image_line_width
+        self.image_padding = image_padding
         self.image_draw_legend = image_draw_legend
         self.max_word_size = max_word_size
         # directions = (
@@ -189,15 +189,14 @@ class Samfellu(object):
     def draw(self):
         if self.tf_points is None:
             raise SamfelluError(u'Unable to draw line before constructing it')
-
         if (self.bbox[2]-self.bbox[0])/(self.bbox[3]-self.bbox[1]) > float(self.image_size[0]) / self.image_size[1]:
-            ratio = (self.bbox[3]-self.bbox[1]) / self.image_size[1]
-            tr_x = -self.bbox[0]
-            tr_y = -self.bbox[1] - self.image_size[1] * ratio / 2
+            ratio = (self.bbox[2] - self.bbox[0]) / self.image_size[0] / (1 - 2 * self.image_padding)
+            tr_x = ratio * self.image_size[0] * self.image_padding - self.bbox[0]
+            tr_y = ratio * self.image_size[1] / 2 - self.bbox[3] / 2 - self.bbox[1] / 2
         else:
-            ratio = (self.bbox[2]-self.bbox[0]) / self.image_size[0]
-            tr_x = -self.bbox[0] - self.image_size[0] * ratio / 2
-            tr_y = -self.bbox[1]
+            ratio = (self.bbox[3] - self.bbox[1]) / self.image_size[1] / (1 - 2 * self.image_padding)
+            tr_x = ratio * self.image_size[0] / 2 - self.bbox[2] / 2 - self.bbox[0] / 2
+            tr_y = ratio * self.image_size[1] * self.image_padding - self.bbox[1]
 
         i = 0
         first = True
@@ -228,7 +227,7 @@ class Samfellu(object):
         for i, (title, poss) in enumerate(self.directions):
             self.cairo_ctx.set_source_rgb(.5, .5, .5)
             self.cairo_ctx.move_to(*self.legend_pos)
-            dx, dy = rotate_vector(-self.image_step_size * 6, 0, 360 * i / len(self.directions))
+            dx, dy = rotate_vector(-50, 0, 360 * i / len(self.directions))
             self.cairo_ctx.line_to(self.legend_pos[0] + dx, self.legend_pos[1] + dy)
             self.cairo_ctx.stroke()
     
