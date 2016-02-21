@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+import math
 import argparse
 import exceptions
 import os
@@ -27,6 +28,31 @@ def rotate_vector(x, y, angle_deg):
     )
 
 
+def parse_color(color):
+    if isinstance(color, basestring):
+        value = color
+        if value.startswith('#'):
+            value = value[1:]
+        if len(value) == 3:
+            value = ''.join(c+c for c in value)
+        if not len(value) == 6:
+            raise SamfelluError(u'Wrong color "%s"' % color)
+
+        try:
+            return [int(value[c*2:c*2+2], 16)/255.0 for c in xrange(3)]
+        except (ValueError, IndexError), e:
+            raise SamfelluError(u'Wrong color "%s"' % color)
+    return color
+
+
+PALETTES = {
+    'default': ('#0CC', '#C0C', '#CC0'),
+    'rgb': ('#f00', '#0f0', '#00f'),
+    '5': ('#FC0347', '#6A03D9', '#0365F0', '#02B27B', '#54FF03'),
+    '3': ('#F27B00', '#4B00F0', '#00A316'),
+}
+
+
 class Samfellu(object):
     text_encoding = 'utf-8'
     text_chunk_size = 4096
@@ -43,7 +69,7 @@ class Samfellu(object):
         (u'Союзы, предлоги и частицы', ('PREP', 'CONJ', 'PRCL')),
         (u'Местоимения', ('NPRO', ))
     )
-    colors = ((1, 0, 0), (0, 0, 1))
+    colors = PALETTES['default']
 
     def __init__(self, text_input, input_type='filename', image_size=(640, 640), **kwargs):
         # set options
@@ -66,6 +92,7 @@ class Samfellu(object):
         self._morph = None
         self._cairo_ctx = None
         self._surface = None
+        self.colors = map(parse_color, self.colors)
 
     @property
     def morph(self):
@@ -95,9 +122,17 @@ class Samfellu(object):
                     return i
 
     def get_color(self, i):
+        if len(self.colors) == 1:
+            return self.colors[0]
+
         t = float(i) / (self.total_words or 1)
-        start, end = self.colors[:2]
-        return [start[i] + t*(end[i]-start[i]) for i in range(3)]
+        n = int(math.floor(t * (len(self.colors) - 1)))  # interval number
+
+        tn = t * (len(self.colors) - 1) - n  # position inside interval
+
+        if t == 1:  # last
+            return self.colors[-1]
+        return [self.colors[n][c] + (self.colors[n+1][c] - self.colors[n][c]) * tn for c in xrange(3)]
 
     def iter_text(self):
         if self.input_type == 'filename':
@@ -111,7 +146,10 @@ class Samfellu(object):
                 raise SamfelluError(u'Wrong encoding "%s"' % self.text_encoding)
 
             while True:
-                chunk = f.read(self.text_chunk_size)
+                try:
+                    chunk = f.read(self.text_chunk_size)
+                except ValueError, e:
+                    raise SamfelluError(u'Wrong encoding "%s" for file "%s"' % (self.text_encoding, self.text_input))
                 if not chunk:
                     break
                 yield chunk
@@ -294,11 +332,14 @@ def print_error(error):
 
 def main():
     parser = argparse.ArgumentParser(description='Visualize russian text in curvy line according to morphology.')
-    parser.add_argument('input', help=u'Input text file')
+    parser.add_argument('input', help=u'Input text file. Use "-" to read from stdin')
     parser.add_argument('output', help=u'Output image file')
-    parser.add_argument('-c', '--encoding', help=u'Input text encoding', default='utf-8')
+    parser.add_argument('-e', '--encoding', help=u'Input text encoding', default='utf-8')
     parser.add_argument('-s', '--size', help=u'Image size', default='640x640')
     parser.add_argument('-l', '--legend', action='store_true', help=u'Draw a legend')
+    color_group = parser.add_mutually_exclusive_group()
+    color_group.add_argument('-c', '--color', nargs='+', help=u'Line color in hex format')
+    color_group.add_argument('-p', '--palette', choices=PALETTES.keys(), help=u'Line color palette')
 
     args = parser.parse_args()
 
@@ -315,6 +356,14 @@ def main():
         'image_size': size,
         'image_draw_legend': args.legend,
     }
+    if args.color:
+        kwargs.update({
+            'colors': args.color
+        })
+    elif args.palette:
+        kwargs.update({
+            'colors': PALETTES[args.palette]
+        })
     if args.input == '-':
         kwargs.update({
             'text_input': sys.stdin,
