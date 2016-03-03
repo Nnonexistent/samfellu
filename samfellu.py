@@ -62,6 +62,7 @@ class Samfellu(object):
     image_padding = .05
     image_draw_legend = True
     image_draw_from_center = False
+    normalization = 'general'
     directions = (
         (u'Существительные', ('NOUN', )),
         (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
@@ -78,22 +79,35 @@ class Samfellu(object):
         self.input_type = input_type
         self.image_size = image_size
         for k, v in kwargs.iteritems():
-            # simple options check
-            if k not in dir(self):
-                raise SamfelluError(u'Wrong option "%s"' % k)
             setattr(self, k, v)
+        self.check(kwargs)
 
         # initializing
-        self.legend_pos = 0.1 * self.image_size[0], 0.1 * self.image_size[1]
+        self.legend_pos = 0.1 * self.image_size[0], 0.9 * self.image_size[1]
         self.counter = Counter()  # directions counter
         self.bbox = (0, 0, 1, 1)
         self.total_words = 0
-        self.tf_dir = None
-        self.tf_points = None
+        self.tf_dir = None  # Tempfile for directions
+        self.tf_points = None  # Tempfile for points
         self._morph = None
         self._cairo_ctx = None
         self._surface = None
         self.colors = map(parse_color, self.colors)
+        self.normals = getattr(self, 'normals', [])  # in case normals were set manually
+
+    def check(self, kwargs):
+        """Basic options check"""
+        for k, v in kwargs.iteritems():
+            if k not in dir(self):
+                raise SamfelluError(u'Nonexistent option "%s"' % k)
+
+        if self.normalization not in ('general', 'none', None, False, 'manual'):
+            raise SamfelluError(u'Wrong normalization value: "%s". Use "general", "none" or "manual".' % self.normalization)
+        if self.normalization == 'manual' and len(self.normals) < len(self.directions):
+            raise SamfelluError(u'Not enough normals set for manual normalization.')
+
+        if self.input_type not in ('filename', 'stream', 'str'):
+            raise SamfelluError(u'Wrong input_type value: "%s". Use "filename", "stream" or "str".' % self.input_type)
 
     @property
     def morph(self):
@@ -206,9 +220,20 @@ class Samfellu(object):
             self.progress(words=i)
         self.total_words = sum(self.counter.itervalues())
 
+    def normalize(self):
+        if self.normalization == 'general':
+            self.normals = []
+            for d in xrange(len(self.directions)):
+                self.normals.append(float(self.total_words) / len(self.directions) / self.counter[d])
+
+        elif self.normalization == 'none' or not self.normalization:
+            self.normals = [1] * len(self.directions)
+
     def construct_line(self):
         if self.tf_dir is None:
             raise SamfelluError(u'Unable to construct line before words parsing complete')
+
+        self.normalize()
 
         x, y = 0.0, 0.0
         self.tf_points = TemporaryFile()
@@ -224,7 +249,7 @@ class Samfellu(object):
             points = array.array('d')
             for d in directions:
                 i += 1
-                dx, dy = rotate_vector(-1, 0, 360 * d / len(self.directions))
+                dx, dy = rotate_vector(self.normals[d], 0, 360 * d / len(self.directions))
                 x, y = x + dx, y + dy
                 points.append(x)
                 points.append(y)
@@ -346,6 +371,8 @@ def main():
     parser.add_argument('output', help=u'Output image file')
     parser.add_argument('-e', '--encoding', help=u'Input text encoding', default='utf-8')
     parser.add_argument('-s', '--size', help=u'Image size', default='640x640')
+    parser.add_argument('-n', '--normalization', help=u'Normalization', default='general', choices=('general', 'none', 'manual'))
+    parser.add_argument('--normals', type=float, nargs='+', help=u'Normal values for manual normalization')
     parser.add_argument('-l', '--legend', action='store_true', help=u'Draw a legend')
     parser.add_argument('--from-center', action='store_true', help=u'Draw line from center')
     color_group = parser.add_mutually_exclusive_group()
@@ -362,12 +389,15 @@ def main():
         return
 
     kwargs = {
+        'normalization': args.normalization,
         'text_encoding': args.encoding,
         'text_input': args.input,
         'image_size': size,
         'image_draw_legend': args.legend,
         'image_draw_from_center': args.from_center,
     }
+    if args.normalization == 'manual':
+        kwargs['normals'] = args.normals
     if args.color:
         kwargs.update({
             'colors': args.color
