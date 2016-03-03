@@ -61,6 +61,7 @@ class Samfellu(object):
     image_line_width = 1
     image_padding = .05
     image_draw_legend = True
+    image_draw_from_center = False
     directions = (
         (u'Существительные', ('NOUN', )),
         (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
@@ -241,6 +242,15 @@ class Samfellu(object):
     def draw(self):
         if self.tf_points is None:
             raise SamfelluError(u'Unable to draw line before constructing it')
+
+        if self.image_draw_from_center:
+            self.bbox = (
+                min(self.bbox[0], -self.bbox[2]),
+                min(self.bbox[1], -self.bbox[3]),
+                max(-self.bbox[0], self.bbox[2]),
+                max(-self.bbox[1], self.bbox[3]),
+            )
+
         if (self.bbox[2]-self.bbox[0])/(self.bbox[3]-self.bbox[1]) > float(self.image_size[0]) / self.image_size[1]:
             ratio = (self.bbox[2] - self.bbox[0]) / self.image_size[0] / (1 - 2 * self.image_padding)
             tr_x = ratio * self.image_size[0] * self.image_padding - self.bbox[0]
@@ -337,6 +347,7 @@ def main():
     parser.add_argument('-e', '--encoding', help=u'Input text encoding', default='utf-8')
     parser.add_argument('-s', '--size', help=u'Image size', default='640x640')
     parser.add_argument('-l', '--legend', action='store_true', help=u'Draw a legend')
+    parser.add_argument('--from-center', action='store_true', help=u'Draw line from center')
     color_group = parser.add_mutually_exclusive_group()
     color_group.add_argument('-c', '--color', nargs='+', help=u'Line color in hex format')
     color_group.add_argument('-p', '--palette', choices=PALETTES.keys(), help=u'Line color palette')
@@ -355,6 +366,7 @@ def main():
         'text_input': args.input,
         'image_size': size,
         'image_draw_legend': args.legend,
+        'image_draw_from_center': args.from_center,
     }
     if args.color:
         kwargs.update({
