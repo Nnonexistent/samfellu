@@ -28,6 +28,16 @@ def rotate_vector(x, y, angle_deg):
     )
 
 
+def draw_arrow(ctx, x, y, angle_deg, length=8):
+    arrow_angle = 20
+    v1 = rotate_vector(length, 0, angle_deg + arrow_angle)
+    v2 = rotate_vector(length, 0, angle_deg - arrow_angle)
+    ctx.move_to(x, y)
+    ctx.line_to(x + v1[0], y + v1[1])
+    ctx.move_to(x, y)
+    ctx.line_to(x + v2[0], y + v2[1])
+
+
 def parse_color(color):
     if isinstance(color, basestring):
         value = color
@@ -83,7 +93,7 @@ class Samfellu(object):
         self.check(kwargs)
 
         # initializing
-        self.legend_pos = 0.1 * self.image_size[0], 0.9 * self.image_size[1]
+        self.legend_pos = 0.05 * self.image_size[0], 0.95 * self.image_size[1]
         self.counter = Counter()  # directions counter
         self.bbox = (0, 0, 1, 1)
         self.total_words = 0
@@ -127,7 +137,7 @@ class Samfellu(object):
         return self._cairo_ctx
 
     def split_text(self, text):
-        return re.finditer(r'\w{1,%s}' % self.max_word_size, text, flags=re.MULTILINE|re.UNICODE)
+        return (m.group() for m in re.finditer(r'\w{1,%s}' % self.max_word_size, text, flags=re.MULTILINE|re.UNICODE))
 
     def get_direction(self, word):
         p = self.morph.parse(word)[0]
@@ -177,7 +187,7 @@ class Samfellu(object):
             except exceptions.LookupError, e:
                 raise SamfelluError(u'Wrong encoding "%s"' % self.text_encoding)
             sr = info.streamreader(self.text_input)
-            sr.encoding = self.text_encoding
+            sr.encoding = self.text_encoding  # assign encoding as in codecs.open
 
             while True:
                 try:
@@ -203,22 +213,19 @@ class Samfellu(object):
                 yield text[i:i+self.text_chunk_size]
 
     def parse_words(self):
-        i = 0
         self.tf_dir = TemporaryFile()
         for text in self.iter_text():
-            directions = array.array('b')
-            words = (m.group() for m in self.split_text(text))
+            directions = array.array('B')  # unsigned char
 
-            for word in words:
-                i += 1
+            for word in self.split_text(text):
                 d = self.get_direction(word)
                 if d is not None:
+                    self.total_words += 1
                     self.counter[d] += 1
                     directions.append(d)
 
             self.tf_dir.write(directions.tostring())
-            self.progress(words=i)
-        self.total_words = sum(self.counter.itervalues())
+            self.progress(words=self.total_words)
 
     def normalize(self):
         if self.normalization == 'general':
@@ -240,7 +247,7 @@ class Samfellu(object):
         self.tf_dir.seek(0)
         i = 0
         while True:
-            directions = array.array('b')
+            directions = array.array('B')  # unsigned char
             chunk = self.tf_dir.read(self.points_chunk_size*directions.itemsize)
             if not chunk:
                 break
@@ -310,18 +317,52 @@ class Samfellu(object):
         self.tf_points = None
 
     def draw_legend(self):
-        self.cairo_ctx.set_line_width(5)
-        for i, (title, poss) in enumerate(self.directions):
-            self.cairo_ctx.set_source_rgb(.5, .5, .5)
-            self.cairo_ctx.move_to(*self.legend_pos)
-            dx, dy = rotate_vector(-50, 0, 360 * i / len(self.directions))
-            self.cairo_ctx.line_to(self.legend_pos[0] + dx, self.legend_pos[1] + dy)
-            self.cairo_ctx.stroke()
+        ctx = self.cairo_ctx
+        margin = 10
+        vector_length = 20
 
-            self.cairo_ctx.move_to(self.legend_pos[0] + dx, self.legend_pos[1] + dy)
-            self.cairo_ctx.set_source_rgb(0, 0, 0)
-            self.cairo_ctx.show_text(u'%s (%s)' % (title, self.counter[i]))
-            self.cairo_ctx.stroke()
+        text_sizes = []
+        for i, (title, poss) in enumerate(self.directions):
+            text = u'%s (%s)' % (title, self.counter[i])
+            w, h = ctx.text_extents(text)[2:4]
+            text_sizes.append((w, h))
+
+        x, y = self.legend_pos
+        x += vector_length / 2 
+        y -= sum(zip(*text_sizes)[1]) + margin * (len(self.directions) - 1)
+
+        for i, (title, poss) in enumerate(self.directions):
+            ctx.set_line_width(2)
+            text = u'%s (%s)' % (title, self.counter[i])
+            w, h = ctx.text_extents(text)[2:4]
+
+            # arrow
+            ctx.set_source_rgb(.5, .5, .5)
+            angle = 360 * i / len(self.directions)
+
+            vector_offset = rotate_vector(vector_length / 2, 0, angle)
+            vector = rotate_vector(-vector_length / 2, 0, angle)
+            base_y = y - h / 2
+
+            ctx.move_to(x + vector_offset[0], base_y + vector_offset[1])
+            ctx.line_to(x + vector[0], base_y + vector[1])
+            draw_arrow(ctx, x + vector[0], base_y + vector[1], angle)
+            ctx.stroke()
+
+            # label
+            ctx.move_to(x + vector_length / 2 + margin, y)
+            ctx.set_line_width(3)
+            ctx.set_source_rgb(1, 1, 1)
+            ctx.text_path(text)
+            ctx.stroke()
+
+            ctx.move_to(x + vector_length / 2 + margin, y)
+            ctx.set_source_rgb(0, 0, 0)
+            ctx.show_text(text)
+            ctx.stroke()
+
+
+            y += h + margin
 
     def process(self):
         self.parse_words()

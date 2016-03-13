@@ -5,7 +5,6 @@ Visualize russian text in curvy line according to morphology.
 
 TODO
 ====
- * Beatify legend
  * Examples, tests, documentation
  * Direction sets, manual directions
  * Process within memory if fits
@@ -15,3 +14,5 @@ TODO
  * Autopositioning for legend
  * Autodetect encoding
  * Save state, resume
+ * Handle words splitting across chunks
+
