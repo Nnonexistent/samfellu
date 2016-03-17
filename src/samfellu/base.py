@@ -56,7 +56,45 @@ PALETTES = {
     '5': ('#FC0347', '#6A03D9', '#0365F0', '#02B27B', '#54FF03'),
     '3': ('#F27B00', '#4B00F0', '#00A316'),
 }
-
+DIRECTION_CHOICES = {
+    '6': (
+        (u'Существительные', ('NOUN', )),
+        (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
+        (u'Прилагательные и причастия', ('ADJF', 'ADJS', 'PRTF', 'PRTS',)),
+        (u'Наречия', ('ADVB', 'COMP')),
+        (u'Союзы, предлоги и частицы', ('PREP', 'CONJ', 'PRCL')),
+        (u'Местоимения', ('NPRO', ))
+    ), 
+    '5': (
+        (u'Существительные', ('NOUN', )),
+        (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
+        (u'Прилагательные, причастия и наречия', ('ADJF', 'ADJS', 'PRTF', 'PRTS', 'ADVB', 'COMP')),
+        (u'Союзы, предлоги и пр.', ('PRED', 'PREP', 'CONJ', 'PRCL', 'INTJ')),
+        (u'Местоимения', ('NPRO', ))
+    ),
+    '4': (
+        (u'Существительные и местоимения', ('NOUN', 'NPRO')),
+        (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
+        (u'Прилагательные, причастия и наречия', ('ADJF', 'ADJS', 'PRTF', 'PRTS', 'ADVB', 'COMP')),
+        (u'Союзы, предлоги и пр.', ('PRED', 'PREP', 'CONJ', 'PRCL', 'INTJ')),
+    ),
+    '4less': (
+        (u'Существительные', ('NOUN', )),
+        (u'Глаголы', ('VERB', 'INFN')),
+        (u'Прилагательные', ('ADJF', 'ADJS')),
+        (u'Союзы, предлоги и частицы', ('PREP', 'CONJ', 'PRCL')),
+    ),
+    '3': (
+        (u'Существительные и местоимения', ('NOUN', 'NPRO')),
+        (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
+        (u'Прилагательные, причастия и наречия', ('ADJF', 'ADJS', 'PRTF', 'PRTS', 'ADVB', 'COMP')),
+    ),
+    '3less': (
+        (u'Существительные', ('NOUN', )),
+        (u'Глаголы', ('VERB', 'INFN')),
+        (u'Прилагательные', ('ADJF', 'ADJS')),
+    ),
+}
 
 class Samfellu(object):
     text_encoding = 'utf-8'
@@ -68,21 +106,7 @@ class Samfellu(object):
     image_draw_legend = True
     image_draw_from_center = False
     normalization = 'general'
-    # directions = (
-    #     (u'Существительные', ('noun', )),
-    #     (u'Глаголы и деепричастия', ('verb', 'infn', 'grnd')),
-    #     (u'Прилагательные и причастия', ('adjf', 'adjs', 'prtf', 'prts', 'advb', 'comp')),
-    #     (u'Союзы, предлоги и пр.', ('pred', 'prep', 'conj', 'prcl', 'intj')),
-    #     (u'Местоимения', ('npro', ))
-    # )
-    directions = (
-        (u'Существительные', ('NOUN', )),
-        (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
-        (u'Прилагательные и причастия', ('ADJF', 'ADJS', 'PRTF', 'PRTS',)),
-        (u'Наречия', ('ADVB', 'COMP')),
-        (u'Союзы, предлоги и частицы', ('PREP', 'CONJ', 'PRCL')),
-        (u'Местоимения', ('NPRO', ))
-    )
+    directions = DIRECTION_CHOICES['4']
     colors = PALETTES['default']
 
     def __init__(self, text_input, input_type='filename', image_size=(640, 640), **kwargs):

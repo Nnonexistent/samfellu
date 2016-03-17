@@ -2,7 +2,7 @@
 import sys
 import argparse
 
-from samfellu.base import Samfellu, SamfelluError, PALETTES
+from samfellu.base import Samfellu, SamfelluError, PALETTES, DIRECTION_CHOICES
 
 
 def print_progress(text, width=79):
@@ -30,6 +30,7 @@ def main():
     parser.add_argument('output', help=u'Output image file')
     parser.add_argument('-e', '--encoding', help=u'Input text encoding', default='utf-8')
     parser.add_argument('-s', '--size', help=u'Image size', default='640x640')
+    parser.add_argument('-d', '--directions', help=u'Directions', default='4', choices=DIRECTION_CHOICES.keys())
     parser.add_argument('-n', '--normalization', help=u'Normalization', default='general', choices=('general', 'none', 'manual'))
     parser.add_argument('--normals', type=float, nargs='+', help=u'Normal values for manual normalization')
     parser.add_argument('-l', '--legend', action='store_true', help=u'Draw a legend')
@@ -48,6 +49,7 @@ def main():
         return 255
 
     kwargs = {
+        'directions': DIRECTION_CHOICES[args.directions],
         'normalization': args.normalization,
         'text_encoding': args.encoding,
         'text_input': args.input,
