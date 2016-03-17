@@ -31,7 +31,6 @@ curl -s http://lib.ru/LITRA/PUSHKIN/kapitan.txt_Ascii.txt | ./smfl.py - out.png 
 
 Argument  | Description 
 ----------|-------------
--h, --help                                      | show this help message and exit
 -e ENCODING, --encoding ENCODING                | Input text encoding
 -s SIZE, --size SIZE                            | Image size
 -d DIR, --directions DIR                        | Directions. Possible choices: 3less, 3, 4less, 4, 5, 6

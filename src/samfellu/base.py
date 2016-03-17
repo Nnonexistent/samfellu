@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import re
-import math
 import exceptions
 import codecs
 import cairo
@@ -12,6 +11,22 @@ from collections import Counter
 
 
 class SamfelluError(Exception):
+    pass
+
+
+class SamfelluValueError(ValueError, SamfelluError):
+    pass
+
+
+class SamfelluConfigurationError(SamfelluValueError):
+    pass
+
+
+class SamfelluIOError(IOError, SamfelluError):
+    pass
+
+
+class SamfelluInvocationError(SamfelluError):
     pass
 
 
@@ -41,12 +56,12 @@ def parse_color(color):
         if len(value) == 3:
             value = ''.join(c+c for c in value)
         if not len(value) == 6:
-            raise SamfelluError(u'Wrong color "%s"' % color)
+            raise SamfelluConfigurationError(u'Wrong color "%s"' % color)
 
         try:
             return [int(value[c*2:c*2+2], 16)/255.0 for c in xrange(3)]
-        except (ValueError, IndexError), e:
-            raise SamfelluError(u'Wrong color "%s"' % color)
+        except (ValueError, IndexError):
+            raise SamfelluConfigurationError(u'Wrong color "%s"' % color)
     return color
 
 
@@ -64,7 +79,7 @@ DIRECTION_CHOICES = {
         (u'Наречия', ('ADVB', 'COMP')),
         (u'Союзы, предлоги и частицы', ('PREP', 'CONJ', 'PRCL')),
         (u'Местоимения', ('NPRO', ))
-    ), 
+    ),
     '5': (
         (u'Существительные', ('NOUN', )),
         (u'Глаголы и деепричастия', ('VERB', 'INFN', 'GRND')),
@@ -95,6 +110,7 @@ DIRECTION_CHOICES = {
         (u'Прилагательные', ('ADJF', 'ADJS')),
     ),
 }
+
 
 class Samfellu(object):
     text_encoding = 'utf-8'
@@ -135,15 +151,15 @@ class Samfellu(object):
         """Basic options check"""
         for k, v in kwargs.iteritems():
             if k not in dir(self):
-                raise SamfelluError(u'Nonexistent option "%s"' % k)
+                raise SamfelluConfigurationError(u'Nonexistent option "%s"' % k)
 
         if self.normalization not in ('general', 'none', None, False, 'manual'):
-            raise SamfelluError(u'Wrong normalization value: "%s". Use "general", "none" or "manual".' % self.normalization)
+            raise SamfelluConfigurationError(u'Wrong normalization value: "%s". Use "general", "none" or "manual".' % self.normalization)
         if self.normalization == 'manual' and len(self.normals) < len(self.directions):
-            raise SamfelluError(u'Not enough normals set for manual normalization.')
+            raise SamfelluConfigurationError(u'Not enough normals set for manual normalization.')
 
         if self.input_type not in ('filename', 'stream', 'str'):
-            raise SamfelluError(u'Wrong input_type value: "%s". Use "filename", "stream" or "str".' % self.input_type)
+            raise SamfelluConfigurationError(u'Wrong input_type value: "%s". Use "filename", "stream" or "str".' % self.input_type)
 
     @property
     def morph(self):
@@ -163,7 +179,7 @@ class Samfellu(object):
         return self._cairo_ctx
 
     def split_text(self, text):
-        return (m.group() for m in re.finditer(r'\w{1,%s}' % self.max_word_size, text, flags=re.MULTILINE|re.UNICODE))
+        return (m.group() for m in re.finditer(r'\w{1,%s}' % self.max_word_size, text, flags=re.MULTILINE | re.UNICODE))
 
     def get_direction(self, word):
         p = self.morph.parse(word)[0]
@@ -189,18 +205,18 @@ class Samfellu(object):
         if self.input_type == 'filename':
             try:
                 f = codecs.open(self.text_input, encoding=self.text_encoding)
-            except IOError, e:
-                raise SamfelluError(u'Unable to open file "%s"' % self.text_input)
-            except ValueError, e:
-                raise SamfelluError(u'Wrong encoding "%s" for file "%s"' % (self.text_encoding, self.text_input))
-            except exceptions.LookupError, e:
-                raise SamfelluError(u'Wrong encoding "%s"' % self.text_encoding)
+            except IOError:
+                raise SamfelluIOError(u'Unable to open file "%s"' % self.text_input)
+            except ValueError:
+                raise SamfelluValueError(u'Wrong encoding "%s" for file "%s"' % (self.text_encoding, self.text_input))
+            except exceptions.LookupError:
+                raise SamfelluConfigurationError(u'Wrong encoding "%s"' % self.text_encoding)
 
             while True:
                 try:
                     chunk = f.read(self.text_chunk_size)
-                except ValueError, e:
-                    raise SamfelluError(u'Wrong encoding "%s" for file "%s"' % (self.text_encoding, self.text_input))
+                except ValueError:
+                    raise SamfelluValueError(u'Wrong encoding "%s" for file "%s"' % (self.text_encoding, self.text_input))
                 if not chunk:
                     break
                 yield chunk
@@ -210,16 +226,16 @@ class Samfellu(object):
         elif self.input_type == 'stream':
             try:
                 info = codecs.lookup(self.text_encoding)
-            except exceptions.LookupError, e:
-                raise SamfelluError(u'Wrong encoding "%s"' % self.text_encoding)
+            except exceptions.LookupError:
+                raise SamfelluConfigurationError(u'Wrong encoding "%s"' % self.text_encoding)
             sr = info.streamreader(self.text_input)
             sr.encoding = self.text_encoding  # assign encoding as in codecs.open
 
             while True:
                 try:
                     chunk = sr.read(self.text_chunk_size)
-                except ValueError, e:
-                    raise SamfelluError(u'Wrong encoding "%s" for stream' % self.text_encoding)
+                except ValueError:
+                    raise SamfelluValueError(u'Wrong encoding "%s" for stream' % self.text_encoding)
                 if not chunk:
                     break
                 yield chunk
@@ -228,12 +244,12 @@ class Samfellu(object):
             if isinstance(self.text_input, str):
                 try:
                     text = self.text_input.decode(self.text_encoding)
-                except ValueError, e:
-                    raise SamfelluError(u'Wrong encoding "%s" for input text' % self.text_encoding)
+                except ValueError:
+                    raise SamfelluValueError(u'Wrong encoding "%s" for input text' % self.text_encoding)
             elif isinstance(self.text_input, unicode):
                 text = self.text_input
             else:
-                raise SamfelluError(u'Unable to recognize input text')
+                raise SamfelluConfigurationError(u'Unable to recognize input text')
 
             for i in xrange(0, len(text), self.text_chunk_size):
                 yield text[i:i+self.text_chunk_size]
@@ -264,7 +280,7 @@ class Samfellu(object):
 
     def construct_line(self):
         if self.tf_dir is None:
-            raise SamfelluError(u'Unable to construct line before words parsing complete')
+            raise SamfelluInvocationError(u'Unable to construct line before words parsing complete')
 
         self.normalize()
 
@@ -299,7 +315,7 @@ class Samfellu(object):
 
     def draw(self):
         if self.tf_points is None:
-            raise SamfelluError(u'Unable to draw line before constructing it')
+            raise SamfelluInvocationError(u'Unable to draw line before constructing it')
 
         if self.image_draw_from_center:
             self.bbox = (
@@ -354,7 +370,7 @@ class Samfellu(object):
             text_sizes.append((w, h))
 
         x, y = self.legend_pos
-        x += vector_length / 2 
+        x += vector_length / 2
         y -= sum(zip(*text_sizes)[1]) + margin * (len(self.directions) - 1)
 
         for i, (title, poss) in enumerate(self.directions):
@@ -387,7 +403,6 @@ class Samfellu(object):
             ctx.show_text(text)
             ctx.stroke()
 
-
             y += h + margin
 
     def process(self):
@@ -403,5 +418,5 @@ class Samfellu(object):
 
     def write_output(self, filename):
         if self._surface is None:
-            raise SamfelluError(u'Drawing context is not ready')
+            raise SamfelluInvocationError(u'Drawing context is not ready')
         self._surface.write_to_png(filename)
