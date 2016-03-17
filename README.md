@@ -1,39 +1,35 @@
-Samfellu
-========
+# Samfellu
 
 Visualize russian text in curvy line according to morphology.
 
 
-Examples
---------
+## Examples
+
  * [Different directions](examples/DIRECTIONS.md)
 
 
-Usage
------
+## Usage
 
 Minimal:
 
-```
+```bash
 ./smfl.py textfile.txt out.png
 ```
 
 Add options:
-```
+```bash
 ./smfl.py textfile.txt out.png --legend --size 1280x800 --directions 6 --palette 5
 ```
 
 Process input from stdin:
-```
+```bash
 curl -s http://lib.ru/LITRA/PUSHKIN/kapitan.txt_Ascii.txt | ./smfl.py - out.png --encoding cp1251
 ```
 
 
-Command line options
---------------------
+## Command line options
 
-Positional arguments
-````````````````````
+### Positional arguments
 
 Argument  | Description 
 ----------|--------------------------------------------
@@ -41,8 +37,8 @@ input     | Input text file. Use "-" to read from stdin
 output    | Output image file
 
 
-Optional arguments
-``````````````````
+### Optional arguments
+
 
 Argument  | Description 
 ----------|-------------
@@ -58,13 +54,12 @@ Argument  | Description
 -p PALETTE, --palette PALETTE                   | Line color palette. Possible choices: default, rgb, 3, 5
 
 
-Installation
-------------
+## Installation
+
 TODO
 
 
-Using as python library
------------------------
+## Using as python library
 
 ```python
 from samfellu import Samfellu, SamfelluError
@@ -76,5 +71,3 @@ try:
 except SamfelluError, e:
     pass
 ```
-
-
