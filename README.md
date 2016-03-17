@@ -27,18 +27,7 @@ curl -s http://lib.ru/LITRA/PUSHKIN/kapitan.txt_Ascii.txt | ./smfl.py - out.png 
 ```
 
 
-## Command line options
-
-### Positional arguments
-
-Argument  | Description 
-----------|--------------------------------------------
-input     | Input text file. Use "-" to read from stdin
-output    | Output image file
-
-
-### Optional arguments
-
+## Command line optional arguments
 
 Argument  | Description 
 ----------|-------------
