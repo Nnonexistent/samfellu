@@ -72,6 +72,7 @@ def main():
             'text_input': sys.stdin,
             'input_type': 'stream',
         })
+
     try:
         smf = ConsoleSamfellu(**kwargs)
         smf.process()

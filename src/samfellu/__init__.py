@@ -1,0 +1,1 @@
+from samfellu.base import Samfellu, SamfelluError
