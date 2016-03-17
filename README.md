@@ -37,25 +37,25 @@ Positional arguments
 
 Argument  | Description
 ----------|-------------
-input     | Input text file. Use "-" to read from stdin
-output    | Output image file
+ input    | Input text file. Use "-" to read from stdin
+ output   | Output image file
 
 
 Optional arguments
 ``````````````````
 
-Argument  | Description
+Argument  | Description 
 ----------|-------------
   -h, --help                        | show this help message and exit
   -e ENCODING, --encoding ENCODING  | Input text encoding
   -s SIZE, --size SIZE              | Image size
-  -d {3less,3,4less,5,4,6}, --directions {3less,3,4less,5,4,6}      | Directions
-  -n {general,none,manual}, --normalization {general,none,manual}   | Normalization
+  -d DIR, --directions DIR          | Directions. Possible choices: 3less, 3, 4less, 5, 4, 6
+  -n NORMALIZATION, --normalization NORMALIZATION | Normalization. Possible choices: general, none, manual
   --normals NORMALS [NORMALS ...]   | Normal values for manual normalization
   -l, --legend                      | Draw a legend
   --from-center                     | Draw line from center
   -c COLOR [COLOR ...], --color COLOR [COLOR ...]       | Line color in hex format
-  -p {default,rgb,5,3}, --palette {default,rgb,5,3}     | Line color palette
+  -p PALETTE, --palette PALETTE     | Line color palette. Possible choices: default,rgb,5,3
 
 
 Installation
@@ -66,7 +66,7 @@ TODO
 Using as python library
 -----------------------
 
-```
+```python
 from samfellu import Samfellu, SamfelluError
 
 try:
