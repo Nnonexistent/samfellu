@@ -57,6 +57,7 @@ docs/_build/
 target/
 
 *.komodoproject
+.directory
 
 # Project specific
 out.png

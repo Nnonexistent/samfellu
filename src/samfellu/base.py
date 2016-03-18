@@ -2,7 +2,7 @@
 import re
 import exceptions
 import codecs
-import cairo
+import cairocffi as cairo
 import pymorphy2
 import math
 import array
